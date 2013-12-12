@@ -2009,6 +2009,14 @@ void vt_copymode_keypress(Vt *t, int keycode)
 		case '0' ... '9':
 			t->copymode_cmd_multiplier = (t->copymode_cmd_multiplier * 10) + (keychar - '0');
 			return;
+		case '':
+			b->curs_row = b->lines;
+			vt_scroll(t, -scroll_page * 2);
+			break;
+		case '':
+			b->curs_row = b->lines + b->rows - 1;
+			vt_scroll(t, scroll_page * 2);
+		case '':
 		case KEY_PPAGE:
 			delta = b->curs_row - b->lines;
 			if (delta > scroll_page)
@@ -2018,6 +2026,7 @@ void vt_copymode_keypress(Vt *t, int keycode)
 				vt_scroll(t, delta - scroll_page);
 			}
 			break;
+		case '':
 		case KEY_NPAGE:
 			delta = b->rows - (b->curs_row - b->lines);
 			if (delta > scroll_page)
@@ -2183,6 +2192,12 @@ void vt_copymode_keypress(Vt *t, int keycode)
 
 					if (found)
 						b->curs_col = col;
+					break;
+				case '':
+					vt_scroll(t, -1);
+					break;
+				case '':
+					vt_scroll(t, 1);
 					break;
 				case KEY_UP:
 				case 'k':
