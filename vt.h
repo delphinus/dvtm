@@ -50,6 +50,9 @@ enum {
     VT_ESCSEQ_HANDLER_NOWAY
 };
 
+static char const * const COPYMODE_INDICATOR = "COPYMODE";
+static char const * const COPYMODE_SELECTING = "SELECTING";
+
 typedef struct Vt Vt;
 typedef int (*vt_escseq_handler_t)(Vt *, char *es);
 

@@ -1462,7 +1462,7 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 	for (int i = 0; i < b->rows; i++) {
 		Row *row = b->lines + i;
 
-		if (!row->dirty)
+		if (i != 0 && !row->dirty)
 			continue;
 
 		wmove(win, srow + i, scol);
@@ -1481,6 +1481,14 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 					cell->bg = t->defbg;
 				wattrset(win, (attr_t) cell->attr << NCURSES_ATTR_SHIFT);
 				wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL);
+			}
+
+            if (t->copymode && i == 0) {
+				if (j >= b->cols - sizeof(COPYMODE_INDICATOR) && j < b->cols) {
+					wcolor_set(win, vt_color_get(t, COLOR_BLACK, COLOR_YELLOW), NULL);
+					waddch(win, COPYMODE_INDICATOR[j]);
+					continue;
+				}
 			}
 
 			if (t->copymode_selecting && ((row > sel_row_start && row < sel_row_end) ||

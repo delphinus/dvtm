@@ -765,8 +765,8 @@ copymode(const char *args[]) {
 	vt_copymode_enter(sel->term);
 	if (args[0]) {
 		vt_copymode_keypress(sel->term, args[0][0]);
-		draw(sel);
 	}
+	draw(sel);
 }
 
 static void
