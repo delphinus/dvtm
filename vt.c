@@ -1484,9 +1484,9 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 			}
 
             if (t->copymode && i == 0) {
-				if (j >= b->cols - sizeof(COPYMODE_INDICATOR) && j < b->cols) {
+				if (j >= b->cols - strlen(COPYMODE_INDICATOR) && j < b->cols) {
 					wcolor_set(win, vt_color_get(t, COLOR_BLACK, COLOR_YELLOW), NULL);
-					waddch(win, COPYMODE_INDICATOR[j]);
+					waddch(win, COPYMODE_INDICATOR[j - b->cols + strlen(COPYMODE_INDICATOR)]);
 					continue;
 				}
 			}
