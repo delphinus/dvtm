@@ -1483,7 +1483,7 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 				wcolor_set(win, vt_color_get(t, cell->fg, cell->bg), NULL);
 			}
 
-            if (t->copymode && i == 0) {
+			if (t->copymode && i == 0) {
 				if (j >= b->cols - strlen(COPYMODE_INDICATOR) && j < b->cols) {
 					wcolor_set(win, vt_color_get(t, COLOR_BLACK, COLOR_YELLOW), NULL);
 					waddch(win, COPYMODE_INDICATOR[j - b->cols + strlen(COPYMODE_INDICATOR)]);
@@ -2024,6 +2024,7 @@ void vt_copymode_keypress(Vt *t, int keycode)
 		case '':
 			b->curs_row = b->lines + b->rows - 1;
 			vt_scroll(t, scroll_page * 2);
+			break;
 		case '':
 		case KEY_PPAGE:
 			delta = b->curs_row - b->lines;
