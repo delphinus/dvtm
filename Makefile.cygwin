@@ -1,0 +1,4 @@
+include config.cygwin.mk
+include Makefile.def
+
+# vim:se ft=make:

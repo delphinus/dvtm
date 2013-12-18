@@ -1,6 +1,3 @@
-include config.mk
-include Makefile.def
-
 SRC += dvtm.c vt.c
 OBJ = ${SRC:.c=.o}
 
@@ -56,7 +53,7 @@ install: dvtm
 	@sed "s/VERSION/${VERSION}/g" < dvtm.1 > ${DESTDIR}${MANPREFIX}/man1/dvtm.1
 	@chmod 644 ${DESTDIR}${MANPREFIX}/man1/dvtm.1
 	@echo installing terminfo description
-	@tic -o ${DESTDIR}/usr/share/terminfo -s dvtm.info
+	@tic -s dvtm.info
 
 uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
@@ -66,4 +63,5 @@ uninstall:
 	@rm -f ${DESTDIR}${MANPREFIX}/man1/dvtm.1
 
 .PHONY: all options clean dist install uninstall debug
+
 # vim:se ft=make:

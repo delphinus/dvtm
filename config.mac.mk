@@ -1,5 +1,5 @@
 # dvtm version
-VERSION = 0.10
+VERSION = 0.9
 
 # Customize below to fit your system
 
@@ -7,7 +7,7 @@ PREFIX = /usr/local
 MANPREFIX = ${PREFIX}/share/man
 
 INCS = -I. -I/usr/include -I/usr/local/include
-LIBS = -lc -lutil -lncursesw
+LIBS = -lc -lutil -lcurses
 
 CFLAGS += -std=c99 -Os ${INCS} -DVERSION=\"${VERSION}\" -DNDEBUG
 LDFLAGS += -L/usr/lib -L/usr/local/lib ${LIBS}

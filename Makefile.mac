@@ -1,0 +1,4 @@
+include config.mac.mk
+include Makefile.def
+
+# vim:se ft=make:
