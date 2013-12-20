@@ -1456,6 +1456,8 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 	bool sel = false;
 	Row *sel_row_start, *sel_row_end;
 	int sel_col_start, sel_col_end;
+	const char *indicator;
+	int indicator_fg, indicator_bg;
 
 	copymode_get_selection_boundry(t, &sel_row_start, &sel_col_start, &sel_row_end, &sel_col_end, true);
 
@@ -1484,9 +1486,12 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 			}
 
 			if (t->copymode && i == 0) {
-				if (j >= b->cols - strlen(COPYMODE_INDICATOR) && j < b->cols) {
-					wcolor_set(win, vt_color_get(t, COLOR_BLACK, COLOR_YELLOW), NULL);
-					waddch(win, COPYMODE_INDICATOR[j - b->cols + strlen(COPYMODE_INDICATOR)]);
+				indicator = t->copymode_selecting ? COPYMODE_SELECTING : COPYMODE_INDICATOR;
+				indicator_bg = t->copymode_selecting ? SELECTING_BG : COPYMODE_BG;
+				indicator_fg = t->copymode_selecting ? SELECTING_FG : COPYMODE_FG;
+				if (j >= b->cols - strlen(indicator) && j < b->cols) {
+					wcolor_set(win, vt_color_get(t, indicator_fg, indicator_bg), NULL);
+					waddch(win, indicator[j - b->cols + strlen(indicator)]);
 					continue;
 				}
 			}

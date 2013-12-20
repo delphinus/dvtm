@@ -52,6 +52,10 @@ enum {
 
 static char const COPYMODE_INDICATOR[] = "[ COPYMODE ]";
 static char const COPYMODE_SELECTING[] = "[ SELECTING ]";
+#define COPYMODE_BG  (COLORS == 256 ? 226 : COLOR_YELLOW)
+#define SELECTING_BG (COLORS == 256 ? 88 : COLOR_RED)
+#define COPYMODE_FG  COLOR_BLACK
+#define SELECTING_FG COLOR_WHITE
 
 typedef struct Vt Vt;
 typedef int (*vt_escseq_handler_t)(Vt *, char *es);
