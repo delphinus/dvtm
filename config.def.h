@@ -35,6 +35,8 @@
 #include "tile.c"
 #include "grid.c"
 #include "bstack.c"
+#include "tstack.c"
+#include "fibonacci.c"
 #include "fullscreen.c"
 
 /* by default the first layout entry is used */
@@ -42,6 +44,9 @@ static Layout layouts[] = {
 	{ "[]=", tile },
 	{ "+++", grid },
 	{ "TTT", bstack },
+	{ "UUU", tstack },
+	{ "SSS", spiral },
+	{ "DDD", dwindle },
 	{ "[ ]", fullscreen },
 };
 
@@ -59,6 +64,9 @@ static Key keys[] = {
 	{ MOD, 't',       { setlayout,      { "[]=" }                   } },
 	{ MOD, 'g',       { setlayout,      { "+++" }                   } },
 	{ MOD, 'b',       { setlayout,      { "TTT" }                   } },
+	{ MOD, 'T',       { setlayout,      { "UUU" }                   } },
+	{ MOD, 'S',       { setlayout,      { "SSS" }                   } },
+	{ MOD, 'D',       { setlayout,      { "DDD" }                   } },
 	{ MOD, 'm',       { setlayout,      { "[ ]" }                   } },
 	{ MOD, ' ',       { setlayout,      { NULL }                    } },
 	{ MOD, 'h',       { setmfact,       { "-0.05" }                 } },
@@ -85,6 +93,8 @@ static Key keys[] = {
 	{ MOD, '/',       { copymode,       { "/" }                     } },
 	{ MOD, '?',       { copymode,       { "?" }                     } },
 	{ MOD, 'p',       { paste,          { NULL }                    } },
+	{ MOD, '[',       { rotate,         { "-1" }                    } },
+	{ MOD, ']',       { rotate,         { "1" }                     } },
 	{ MOD, KEY_PPAGE, { scrollback,     { "-1" }                    } },
 	{ MOD, KEY_NPAGE, { scrollback,     { "1"  }                    } },
 	{ MOD, KEY_F(1),  { create,         { "man dvtm", "dvtm help" } } },
