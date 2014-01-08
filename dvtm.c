@@ -166,6 +166,7 @@ static void toggleminimize(const char *args[]);
 static void togglemouse(const char *args[]);
 static void togglerunall(const char *args[]);
 static void zoom(const char *args[]);
+static void rotate(const char *args[]);
 
 /* commands for use by mouse bindings */
 static void mouse_focus(const char *args[]);
@@ -1052,6 +1053,32 @@ zoom(const char *args[]) {
 	focus(c);
 	if (c->minimized)
 		toggleminimize(NULL);
+	arrange();
+}
+
+static void
+rotate(const char *args[]) {
+	Client *c, *a;
+	int direction;
+	sscanf(args[0], "%d", &direction);
+
+	if (!sel)
+		return;
+
+	c = clients;
+	for (a = clients; a && a->next; a = a->next);
+	if (a == c)
+		return;
+
+	if (direction > 0) {
+		detach(a);
+		attach(a);
+		focusprevnm(NULL);
+	} else {
+		detach(c);
+		attachafter(c, a);
+		focusnextnm(NULL);
+	}
 	arrange();
 }
 
