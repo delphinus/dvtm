@@ -1,7 +1,7 @@
 /*
  * The initial "port" of dwm to curses was done by
  *
- * © 2007-2013 Marc André Tanner <mat at brain-dump dot org>
+ * © 2007-2014 Marc André Tanner <mat at brain-dump dot org>
  *
  * It is highly inspired by the original X11 dwm and
  * reuses some code of it which is mostly
@@ -150,8 +150,8 @@ static void focusnext(const char *args[]);
 static void focusnextnm(const char *args[]);
 static void focusprev(const char *args[]);
 static void focusprevnm(const char *args[]);
+static void focuslast(const char *args[]);
 static void killclient(const char *args[]);
-static void lock(const char *key[]);
 static void paste(const char *args[]);
 static void quit(const char *args[]);
 static void redraw(const char *args[]);
@@ -181,12 +181,14 @@ static unsigned int waw, wah, wax, way;
 static Client *clients = NULL;
 static char *title;
 #define COLOR(fg, bg) COLOR_PAIR(vt_color_reserve(fg, bg))
+#define NOMOD ERR
 
 #include "config.h"
 
 /* global variables */
 Screen screen = { MFACT, SCROLL_HISTORY };
 static Client *sel = NULL;
+static Client *lastsel = NULL;
 static Client *msel = NULL;
 static bool mouse_events_enabled = ENABLE_MOUSE;
 static Layout *layout = layouts;
@@ -256,8 +258,15 @@ drawbar() {
 	wnoutrefresh(stdscr);
 }
 
+static int
+show_border() {
+	return (bar.fd != -1 && bar.pos != BAR_OFF) || (clients && clients->next);
+}
+
 static void
 draw_border(Client *c) {
+	if (!show_border())
+		return;
 	char t = '\0';
 	int x, y, maxlen;
 
@@ -283,7 +292,7 @@ draw_border(Client *c) {
 
 static void
 draw_content(Client *c) {
-	vt_draw(c->term, c->window, 1, 0);
+	vt_draw(c->term, c->window, show_border(), 0);
 }
 
 static void
@@ -299,9 +308,8 @@ draw(Client *c) {
 
 static void
 draw_all() {
-	Client *c;
 	if (!isarrange(fullscreen)) {
-		for (c = clients; c; c = c->next) {
+		for (Client *c = clients; c; c = c->next) {
 			if (c == sel)
 				continue;
 			draw(c);
@@ -383,6 +391,7 @@ focus(Client *c) {
 	Client *tmp = sel;
 	if (sel == c)
 		return;
+	lastsel = sel;
 	sel = c;
 	settitle(c);
 	if (tmp && !isarrange(fullscreen)) {
@@ -444,9 +453,9 @@ move_client(Client *c, int x, int y) {
 	if (c->x == x && c->y == y)
 		return;
 	debug("moving, x: %d y: %d\n", x, y);
-	if (mvwin(c->window, y, x) == ERR)
+	if (mvwin(c->window, y, x) == ERR) {
 		eprint("error moving, x: %d y: %d\n", x, y);
-	else {
+	} else {
 		c->x = x;
 		c->y = y;
 	}
@@ -457,13 +466,13 @@ resize_client(Client *c, int w, int h) {
 	if (c->w == w && c->h == h)
 		return;
 	debug("resizing, w: %d h: %d\n", w, h);
-	if (wresize(c->window, h, w) == ERR)
+	if (wresize(c->window, h, w) == ERR) {
 		eprint("error resizing, w: %d h: %d\n", w, h);
-	else {
+	} else {
 		c->w = w;
 		c->h = h;
 	}
-	vt_resize(c->term, h - 1, w);
+	vt_resize(c->term, h - show_border(), w);
 }
 
 static void
@@ -474,8 +483,7 @@ resize(Client *c, int x, int y, int w, int h) {
 
 static Client*
 get_client_by_pid(pid_t pid) {
-	Client *c;
-	for (c = clients; c; c = c->next) {
+	for (Client *c = clients; c; c = c->next) {
 		if (c->pid == pid)
 			return c;
 	}
@@ -484,12 +492,11 @@ get_client_by_pid(pid_t pid) {
 
 static Client*
 get_client_by_coord(unsigned int x, unsigned int y) {
-	Client *c;
 	if (y < way || y >= wah)
 		return NULL;
 	if (isarrange(fullscreen))
 		return sel;
-	for (c = clients; c; c = c->next) {
+	for (Client *c = clients; c; c = c->next) {
 		if (x >= c->x && x < c->x + c->w && y >= c->y && y < c->y + c->h) {
 			debug("mouse event, x: %d y: %d client: %d\n", x, y, c->order);
 			return c;
@@ -503,7 +510,6 @@ sigchld_handler(int sig) {
 	int errsv = errno;
 	int status;
 	pid_t pid;
-	Client *c;
 
 	while ((pid = waitpid(-1, &status, WNOHANG)) != 0) {
 		if (pid == -1) {
@@ -515,7 +521,8 @@ sigchld_handler(int sig) {
 			break;
 		}
 		debug("child with pid %d died\n", pid);
-		if ((c = get_client_by_pid(pid)))
+		Client *c = get_client_by_pid(pid);
+		if (c)
 			c->died = true;
 	}
 
@@ -568,13 +575,13 @@ resize_screen() {
 	waw = screen.w;
 	wah = screen.h;
 	updatebarpos();
+	clear();
 	arrange();
 }
 
 static bool
 is_modifier(unsigned int mod) {
-	unsigned int i;
-	for (i = 0; i < countof(keys); i++) {
+	for (unsigned int i = 0; i < countof(keys); i++) {
 		if (keys[i].mod == mod)
 			return true;
 	}
@@ -583,8 +590,7 @@ is_modifier(unsigned int mod) {
 
 static Key*
 keybinding(unsigned int mod, unsigned int code) {
-	unsigned int i;
-	for (i = 0; i < countof(keys); i++) {
+	for (unsigned int i = 0; i < countof(keys); i++) {
 		if (keys[i].mod == mod && keys[i].code == code)
 			return &keys[i];
 	}
@@ -593,7 +599,6 @@ keybinding(unsigned int mod, unsigned int code) {
 
 static void
 keypress(int code) {
-	Client *c;
 	unsigned int len = 1;
 	char buf[8] = { '\e' };
 
@@ -605,7 +610,7 @@ keypress(int code) {
 		nodelay(stdscr, FALSE);
 	}
 
-	for (c = runinall ? clients : sel; c; c = c->next) {
+	for (Client *c = runinall ? clients : sel; c; c = c->next) {
 		if (is_content_visible(c)) {
 			if (code == '\e')
 				vt_write(c->term, buf, len);
@@ -665,9 +670,12 @@ destroy(Client *c) {
 		if (clients) {
 			focus(clients);
 			toggleminimize(NULL);
-		} else
+		} else {
 			sel = NULL;
+		}
 	}
+	if (lastsel == c)
+		lastsel = NULL;
 	werase(c->window);
 	wnoutrefresh(c->window);
 	vt_destroy(c->term);
@@ -729,7 +737,7 @@ create(const char *args[]) {
 		return;
 	}
 
-	if (!(c->term = vt_create(screen.h - 1, screen.w, screen.history))) {
+	if (!(c->term = vt_create(screen.h - show_border(), screen.w, screen.history))) {
 		delwin(c->window);
 		free(c);
 		return;
@@ -772,9 +780,7 @@ copymode(const char *args[]) {
 
 static void
 focusn(const char *args[]) {
-	Client *c;
-
-	for (c = clients; c; c = c->next) {
+	for (Client *c = clients; c; c = c->next) {
 		if (c->order == atoi(args[0])) {
 			focus(c);
 			if (c->minimized)
@@ -786,12 +792,9 @@ focusn(const char *args[]) {
 
 static void
 focusnext(const char *args[]) {
-	Client *c;
-
 	if (!sel)
 		return;
-
-	c = sel->next;
+	Client *c = sel->next;
 	if (!c)
 		c = clients;
 	if (c)
@@ -800,11 +803,9 @@ focusnext(const char *args[]) {
 
 static void
 focusnextnm(const char *args[]) {
-	Client *c;
-
 	if (!sel)
 		return;
-	c = sel;
+	Client *c = sel;
 	do {
 		c = c->next;
 		if (!c)
@@ -815,11 +816,9 @@ focusnextnm(const char *args[]) {
 
 static void
 focusprev(const char *args[]) {
-	Client *c;
-
 	if (!sel)
 		return;
-	c = sel->prev;
+	Client *c = sel->prev;
 	if (!c)
 		for (c = clients; c && c->next; c = c->next);
 	if (c)
@@ -828,11 +827,9 @@ focusprev(const char *args[]) {
 
 static void
 focusprevnm(const char *args[]) {
-	Client *c;
-
 	if (!sel)
 		return;
-	c = sel;
+	Client *c = sel;
 	do {
 		c = c->prev;
 		if (!c)
@@ -842,42 +839,17 @@ focusprevnm(const char *args[]) {
 }
 
 static void
+focuslast(const char *args[]) {
+	if (lastsel)
+		focus(lastsel);
+}
+
+static void
 killclient(const char *args[]) {
 	if (!sel)
 		return;
 	debug("killing client with pid: %d\n", sel->pid);
 	kill(-sel->pid, SIGKILL);
-}
-
-static void
-lock(const char *args[]) {
-	size_t len = 0, i = 0;
-	char buf[16], *pass = buf;
-	int c;
-
-	erase();
-	curs_set(0);
-
-	if (args && args[0]) {
-		len = strlen(args[0]);
-		pass = (char *)args[0];
-	} else {
-		mvprintw(LINES / 2, COLS / 2 - 7, "Enter password");
-		while (len < sizeof buf && (c = getch()) != '\n')
-			if (c != ERR)
-				buf[len++] = c;
-	}
-
-	mvprintw(LINES / 2, COLS / 2 - 7, "Screen locked!");
-
-	while (i != len) {
-		for(i = 0; i < len; i++) {
-			if (getch() != pass[i])
-				break;
-		}
-	}
-
-	arrange();
 }
 
 static void
@@ -901,16 +873,13 @@ redraw(const char *args[]) {
 			wnoutrefresh(c->window);
 		}
 	}
-	wclear(stdscr);
-	wnoutrefresh(stdscr);
-	doupdate();
 	resize_screen();
-	draw_all();
 }
 
 static void
 scrollback(const char *args[]) {
-	if (!sel) return;
+	if (!is_content_visible(sel))
+		return;
 
 	if (!args[0] || atoi(args[0]) < 0)
 		vt_scroll(sel->term, -sel->h/2);
@@ -918,6 +887,7 @@ scrollback(const char *args[]) {
 		vt_scroll(sel->term,  sel->h/2);
 
 	draw(sel);
+	curs_set(vt_cursor(sel->term));
 }
 
 static void
@@ -951,9 +921,9 @@ setmfact(const char *args[]) {
 	if (isarrange(fullscreen) || isarrange(grid))
 		return;
 	/* arg handling, manipulate mfact */
-	if (args[0] == NULL)
+	if (args[0] == NULL) {
 		screen.mfact = MFACT;
-	else if (1 == sscanf(args[0], "%f", &delta)) {
+	} else if (1 == sscanf(args[0], "%f", &delta)) {
 		if (args[0][0] == '+' || args[0][0] == '-')
 			screen.mfact += delta;
 		else
@@ -979,7 +949,7 @@ togglebar(const char *args[]) {
 	else
 		bar.pos = BAR_OFF;
 	updatebarpos();
-	arrange();
+	redraw(NULL);
 }
 
 static void
@@ -1045,6 +1015,8 @@ zoom(const char *args[]) {
 
 	if (!sel)
 		return;
+	if (args && args[0])
+		focusn(args);
 	if ((c = sel) == clients)
 		if (!(c = c->next))
 			return;
@@ -1296,12 +1268,11 @@ usage() {
 
 static bool
 parse_args(int argc, char *argv[]) {
-	int arg;
 	bool init = false;
 
 	if (!getenv("ESCDELAY"))
 		set_escdelay(100);
-	for (arg = 1; arg < argc; arg++) {
+	for (int arg = 1; arg < argc; arg++) {
 		if (argv[arg][0] != '-') {
 			const char *args[] = { argv[arg], NULL, NULL };
 			if (!init) {
@@ -1315,7 +1286,7 @@ parse_args(int argc, char *argv[]) {
 			usage();
 		switch (argv[arg][1]) {
 			case 'v':
-				puts("dvtm-"VERSION" © 2007-2013 Marc André Tanner");
+				puts("dvtm-"VERSION" © 2007-2014 Marc André Tanner");
 				exit(EXIT_SUCCESS);
 			case 'M':
 				mouse_events_enabled = !mouse_events_enabled;
@@ -1370,7 +1341,6 @@ main(int argc, char *argv[]) {
 	}
 
 	while (running) {
-		Client *c, *t;
 		int r, nfds = 0;
 		fd_set rd;
 
@@ -1392,9 +1362,9 @@ main(int argc, char *argv[]) {
 			nfds = max(nfds, bar.fd);
 		}
 
-		for (c = clients; c; ) {
+		for (Client *c = clients; c; ) {
 			if (c->died) {
-				t = c->next;
+				Client *t = c->next;
 				destroy(c);
 				c = t;
 				continue;
@@ -1403,6 +1373,7 @@ main(int argc, char *argv[]) {
 			nfds = max(nfds, c->pty);
 			c = c->next;
 		}
+
 		doupdate();
 		r = select(nfds + 1, &rd, NULL, NULL, NULL);
 
@@ -1426,7 +1397,7 @@ main(int argc, char *argv[]) {
 					handle_mouse();
 				} else if (is_modifier(code)) {
 					mod = code;
-				} else if ((key = keybinding(0, code))) {
+				} else if ((key = keybinding(ERR, code))) {
 					key->action.cmd(key->action.args);
 				} else if (sel && vt_copymode(sel->term)) {
 					vt_copymode_keypress(sel->term, code);
@@ -1445,11 +1416,11 @@ main(int argc, char *argv[]) {
 		if (bar.fd != -1 && FD_ISSET(bar.fd, &rd))
 			handle_statusbar();
 
-		for (c = clients; c; ) {
+		for (Client *c = clients; c; ) {
 			if (FD_ISSET(c->pty, &rd) && !vt_copymode(c->term)) {
 				if (vt_process(c->term) < 0 && errno == EIO) {
 					/* client probably terminated */
-					t = c->next;
+					Client *t = c->next;
 					destroy(c);
 					c = t;
 					continue;
