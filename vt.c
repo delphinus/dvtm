@@ -911,17 +911,29 @@ static void interpret_csi_scs(Vt *t)
 static void interpret_esc_xterm(Vt *t)
 {
 	/* ESC]n;dataBEL -- the ESC is not part of t->ebuf */
-	char *title = NULL;
+	char *text = NULL;
 
 	switch (t->ebuf[1]) {
 	case '0':
 	case '2':
 		t->ebuf[t->elen - 1] = '\0';
 		if (t->elen > sstrlen("]n;\a"))
-			title = t->ebuf + sstrlen("]n;");
+			text = t->ebuf + sstrlen("]n;");
 
 		if (t->event_handler)
-			t->event_handler(t, VT_EVENT_TITLE, title);
+			t->event_handler(t, VT_EVENT_TITLE, text);
+	case '1':
+		if (t->ebuf[2] == '2') {
+			t->ebuf[t->elen - 2] = '\0';
+			text = t->ebuf + sstrlen("]nn;");
+			printf("\e]12;%s\e\\", text);
+		}
+	case '5':
+		if (t->ebuf[2] == '2') {
+			t->ebuf[t->elen - 2] = '\0';
+			text = t->ebuf + sstrlen("]nn;;");
+			printf("\e]52;;%s\e\\", text);
+		}
 	}
 }
 
