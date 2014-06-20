@@ -925,8 +925,7 @@ static void interpret_esc_xterm(Vt *t)
 	case '1':
 	case '4':
 	case '5':
-		t->ebuf[t->elen - 2] = '\0';
-		printf("\e%s\e\\", t->ebuf);
+		printf("\e%s", t->ebuf);
 	}
 }
 
