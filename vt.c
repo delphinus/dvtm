@@ -923,17 +923,10 @@ static void interpret_esc_xterm(Vt *t)
 		if (t->event_handler)
 			t->event_handler(t, VT_EVENT_TITLE, text);
 	case '1':
-		if (t->ebuf[2] == '2') {
-			t->ebuf[t->elen - 2] = '\0';
-			text = t->ebuf + sstrlen("]nn;");
-			printf("\e]12;%s\e\\", text);
-		}
+	case '4':
 	case '5':
-		if (t->ebuf[2] == '2') {
-			t->ebuf[t->elen - 2] = '\0';
-			text = t->ebuf + sstrlen("]nn;;");
-			printf("\e]52;;%s\e\\", text);
-		}
+		t->ebuf[t->elen - 2] = '\0';
+		printf("\e%s\e\\", t->ebuf);
 	}
 }
 
