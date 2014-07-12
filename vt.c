@@ -38,7 +38,7 @@
 #elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 # include <util.h>
 #endif
-#if defined(__CYGWIN__) || defined(_AIX)
+#if defined(__CYGWIN__) || defined(_AIX) || defined(__sun)
 # include <alloca.h>
 #endif
 
@@ -46,6 +46,8 @@
 
 #ifdef _AIX
 # include "forkpty-aix.c"
+#elif defined __sun
+# include "forkpty-sunos.c"
 #endif
 
 #ifndef NCURSES_ATTR_SHIFT
@@ -70,6 +72,10 @@
 #endif
 #ifndef MAX_COLOR_PAIRS
 # define MAX_COLOR_PAIRS COLOR_PAIRS
+#endif
+
+#ifndef CTRL
+# define CTRL(k)   ((k) & 0x1F)
 #endif
 
 #define IS_CONTROL(ch) !((ch) & 0xffffff60UL)
@@ -163,6 +169,8 @@ struct Vt {
 	char rbuf[BUFSIZ];
 	char ebuf[BUFSIZ];
 	unsigned int rlen, elen;
+	/* last known start row, start column */
+	int srow, scol;
 
 	/* xterm style window title */
 	char title[256];
@@ -1463,6 +1471,12 @@ void vt_draw(Vt *t, WINDOW * win, int srow, int scol)
 	const char *indicator;
 	int indicator_fg, indicator_bg;
 
+	if (srow != t->srow || scol != t->scol) {
+		vt_dirty(t);
+		t->srow = srow;
+		t->scol = scol;
+	}
+
 	copymode_get_selection_boundry(t, &sel_row_start, &sel_col_start, &sel_row_end, &sel_col_end, true);
 
 	for (int i = 0; i < b->rows; i++) {
@@ -1944,7 +1958,7 @@ static void cmdline_keypress(Cmdline *c, int keycode)
 		c->display = disp >= c->buf ? disp + 1: c->buf;
 		c->cursor_pos = (width < c->width - 1) ? width : c->width - 1;
 		break;
-	case 1 ... 26: /* CTRL('a') ... CTRL('z') */
+	case CTRL('a') ... CTRL('z'):
 		if (keycode != '\n')
 			break;
 		copymode_search(c->data, c->prefix == '/' ? 1 : -1);
@@ -2023,7 +2037,13 @@ void vt_copymode_keypress(Vt *t, int keycode)
 		cmdline_keypress(t->cmdline, keycode);
 	} else {
 		switch (keycode) {
-		case '0' ... '9':
+		case '0':
+			if (t->copymode_cmd_multiplier == 0) {
+				b->curs_col = 0;
+				break;
+			}
+			/* fall through */
+		case '1' ... '9':
 			t->copymode_cmd_multiplier = (t->copymode_cmd_multiplier * 10) + (keychar - '0');
 			return;
 		case '':
@@ -2036,6 +2056,7 @@ void vt_copymode_keypress(Vt *t, int keycode)
 			break;
 		case '':
 		case KEY_PPAGE:
+		case CTRL('u'):
 			delta = b->curs_row - b->lines;
 			if (delta > scroll_page)
 				b->curs_row -= scroll_page;
@@ -2046,6 +2067,7 @@ void vt_copymode_keypress(Vt *t, int keycode)
 			break;
 		case '':
 		case KEY_NPAGE:
+		case CTRL('d'):
 			delta = b->rows - (b->curs_row - b->lines);
 			if (delta > scroll_page)
 				b->curs_row += scroll_page;
@@ -2151,6 +2173,7 @@ void vt_copymode_keypress(Vt *t, int keycode)
 			/* fall through */
 		case '\e':
 		case 'q':
+		case CTRL('c'):
 			vt_copymode_leave(t);
 			return;
 		default:

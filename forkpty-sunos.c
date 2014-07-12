@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2009 Nicholas Marriott <nicm@users.sourceforge.net>
- * Copyright (c) 2012 Ross Palmer Mohn <rpmohn@waxandwane.org>
+ * Copyright (c) 2008 Nicholas Marriott <nicm@users.sourceforge.net>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,22 +18,31 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <stropts.h>
 #include <unistd.h>
-#include <paths.h>
+
+#ifndef TTY_NAME_MAX
+#define TTY_NAME_MAX TTYNAME_MAX
+#endif
 
 pid_t forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 {
-	int	slave, fd;
+	int	slave;
 	char   *path;
 	pid_t	pid;
-	struct termios tio2;
 
-	if ((*master = open("/dev/ptc", O_RDWR|O_NOCTTY)) == -1)
+	if ((*master = open("/dev/ptmx", O_RDWR|O_NOCTTY)) == -1)
 		return -1;
-
-	if ((path = ttyname(*master)) == NULL)
+	if (grantpt(*master) != 0)
 		goto out;
+	if (unlockpt(*master) != 0)
+		goto out;
+
+	if ((path = ptsname(*master)) == NULL)
+		goto out;
+	if (name != NULL)
+		strlcpy(name, path, TTY_NAME_MAX);
 	if ((slave = open(path, O_RDWR|O_NOCTTY)) == -1)
 		goto out;
 
@@ -44,35 +52,18 @@ pid_t forkpty(int *master, char *name, struct termios *tio, struct winsize *ws)
 	case 0:
 		close(*master);
 
-		fd = open(_PATH_TTY, O_RDWR|O_NOCTTY);
-		if (fd >= 0) {
-			ioctl(fd, TIOCNOTTY, NULL);
-			close(fd);
-		}
+		setsid();
+#ifdef TIOCSCTTY
+		if (ioctl(slave, TIOCSCTTY, NULL) == -1)
+			return -1;
+#endif
 
-		if (setsid() < 0)
+		if (ioctl(slave, I_PUSH, "ptem") == -1)
+			return -1;
+		if (ioctl(slave, I_PUSH, "ldterm") == -1)
 			return -1;
 
-		fd = open(_PATH_TTY, O_RDWR|O_NOCTTY);
-		if (fd >= 0)
-			return -1;
-
-		fd = open(path, O_RDWR);
-		if (fd < 0)
-			return -1;
-		close(fd);
-
-		fd = open("/dev/tty", O_WRONLY);
-		if (fd < 0)
-			return -1;
-		close(fd);
-
-		if (tcgetattr(slave, &tio2) != 0)
-			return -1;
-		if (tio != NULL)
-			memcpy(tio2.c_cc, tio->c_cc, sizeof tio2.c_cc);
-		tio2.c_cc[VERASE] = '\177';
-		if (tcsetattr(slave, TCSAFLUSH, &tio2) == -1)
+		if (tio != NULL && tcsetattr(slave, TCSAFLUSH, tio) == -1)
 			return -1;
 		if (ioctl(slave, TIOCSWINSZ, ws) == -1)
 			return -1;
