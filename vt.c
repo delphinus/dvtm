@@ -2050,11 +2050,10 @@ void vt_copymode_keypress(Vt *t, int keycode)
 			b->curs_row = b->lines;
 			vt_scroll(t, -scroll_page * 2);
 			break;
-		case '':
+    case CTRL('f'):
 			b->curs_row = b->lines + b->rows - 1;
 			vt_scroll(t, scroll_page * 2);
 			break;
-		case '':
 		case KEY_PPAGE:
 		case CTRL('u'):
 			delta = b->curs_row - b->lines;
@@ -2065,7 +2064,6 @@ void vt_copymode_keypress(Vt *t, int keycode)
 				vt_scroll(t, delta - scroll_page);
 			}
 			break;
-		case '':
 		case KEY_NPAGE:
 		case CTRL('d'):
 			delta = b->rows - (b->curs_row - b->lines);
